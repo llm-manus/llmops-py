@@ -88,13 +88,6 @@ class Message(db.Model):
     updated_at = Column(DateTime, default=datetime.now, nullable=False)
     created_at = Column(DateTime, default=datetime.now, nullable=False)
 
-    @property
-    def agent_thoughts(self) -> list["MessageAgentThought"]:
-        """只读属性，返回该消息对应的智能体推理过程列表"""
-        return db.session.query(MessageAgentThought).filter(
-            MessageAgentThought.message_id == self.id
-        ).order_by(asc("position")).all()
-
     # 智能体推理列表，创建表关联
     agent_thoughts = relationship(
         "MessageAgentThought",
