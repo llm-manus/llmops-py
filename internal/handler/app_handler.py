@@ -216,3 +216,28 @@ class AppHandler:
     def ping(self):
         demo_task.delay(uuid.uuid4())
         return success_json("aaa")
+    
+    def health_check(self):
+        """健康检查端点，用于监控服务状态"""
+        try:
+            # 检查数据库连接
+            from config import Config
+            conf = Config()
+            
+            health_status = {
+                "status": "healthy",
+                "service": "LLMOps",
+                "version": "1.0.0",
+                "database": "connected" if conf.SQLALCHEMY_DATABASE_URI else "not_configured",
+                "redis": "connected" if conf.REDIS_HOST else "not_configured",
+                "timestamp": str(uuid.uuid4())  # 简单的唯一标识
+            }
+            
+            return success_json(health_status)
+        except Exception as e:
+            return success_json({
+                "status": "unhealthy",
+                "service": "LLMOps", 
+                "error": str(e),
+                "timestamp": str(uuid.uuid4())
+            })
