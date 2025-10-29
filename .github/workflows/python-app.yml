@@ -1,36 +1,361 @@
-# This workflow will install Python dependencies, run tests and lint with a single version of Python
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
+# LLMOps服务部署工作流
+# 支持代码检查、构建、部署和启动服务
+# 需要在GitHub仓库的Secrets中配置目标服务器的连接信息
 
-name: Python application
+name: LLMOps Service Deployment
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "master" ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ "main", "master" ]
+  workflow_dispatch:  # 支持手动触发
 
 permissions:
   contents: read
 
+env:
+  # 服务配置
+  SERVICE_NAME: "llmops-service"
+  SERVICE_PORT: "5000"
+  PYTHON_VERSION: "3.10"
+  
+  # 数据库配置 - 需要在GitHub Secrets中配置
+  # SQLALCHEMY_DATABASE_URI: ${{ secrets.DATABASE_URL }}
+  # REDIS_HOST: ${{ secrets.REDIS_HOST }}
+  # REDIS_PASSWORD: ${{ secrets.REDIS_PASSWORD }}
+  # WEAVIATE_URL: ${{ secrets.WEAVIATE_URL }}
+  # WEAVIATE_API_KEY: ${{ secrets.WEAVIATE_API_KEY }}
+  
+  # JWT认证配置 - 必需
+  # JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
+  
+  # 腾讯云COS配置 - 可选
+  # COS_REGION: ${{ secrets.COS_REGION }}
+  # COS_BUCKET: ${{ secrets.COS_BUCKET }}
+  # COS_SECRET_ID: ${{ secrets.COS_SECRET_ID }}
+  # COS_SECRET_KEY: ${{ secrets.COS_SECRET_KEY }}
+  
+  # GitHub OAuth配置 - 可选
+  # GITHUB_CLIENT_ID: ${{ secrets.GITHUB_CLIENT_ID }}
+  # GITHUB_CLIENT_SECRET: ${{ secrets.GITHUB_CLIENT_SECRET }}
+  # GITHUB_REDIRECT_URI: ${{ secrets.GITHUB_REDIRECT_URI }}
+  
+  # 语言模型API密钥 - 可选
+  # OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+  # ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+  # MOONSHOT_API_KEY: ${{ secrets.MOONSHOT_API_KEY }}
+  # DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+  
+  # 内置工具API密钥 - 可选
+  # GAODE_API_KEY: ${{ secrets.GAODE_API_KEY }}
+  # SERPER_API_KEY: ${{ secrets.SERPER_API_KEY }}
+  # GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+
 jobs:
-  build:
-
+  # 代码质量检查
+  code-quality:
     runs-on: ubuntu-latest
-
+    
     steps:
-    - uses: actions/checkout@v4
-    - name: Set up Python 3.10
-      uses: actions/setup-python@v3
+    - name: 检出代码
+      uses: actions/checkout@v4
+      
+    - name: 设置Python环境
+      uses: actions/setup-python@v4
       with:
-        python-version: "3.10"
-    - name: Install dependencies
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: 安装依赖
       run: |
         python -m pip install --upgrade pip
         pip install flake8 pytest
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-    - name: Lint with flake8
+        
+    - name: 代码风格检查
       run: |
-        # stop the build if there are Python syntax errors or undefined names
+        # 检查Python语法错误和未定义名称
         flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
+        # 代码复杂度检查
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+        
+    - name: 运行测试
+      run: |
+        # 如果有测试文件，运行测试
+        if [ -d "tests" ] || [ -f "test_*.py" ]; then
+          pytest -v
+        else
+          echo "未找到测试文件，跳过测试步骤"
+        fi
+
+  # 构建和部署
+  build-and-deploy:
+    needs: code-quality
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+      
+    - name: 设置Python环境
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: 安装依赖
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        
+    - name: 创建部署包
+      run: |
+        # 创建部署目录
+        mkdir -p deployment
+        
+        # 复制必要文件到部署目录
+        cp -r app deployment/
+        cp -r config deployment/
+        cp -r internal deployment/
+        cp -r pkg deployment/
+        cp requirements.txt deployment/
+        cp -r storage deployment/ || true
+        
+        # 创建启动脚本
+        cat > deployment/start_service.sh << 'EOF'
+        #!/bin/bash
+        set -e
+        
+        # 设置环境变量
+        export FLASK_APP=app.http.app
+        export FLASK_ENV=production
+        
+        # 检查数据库连接
+        echo "检查数据库连接..."
+        python -c "
+        from config import Config
+        import os
+        conf = Config()
+        if not conf.SQLALCHEMY_DATABASE_URI:
+            print('警告: 数据库连接字符串未配置')
+        else:
+            print('数据库连接字符串已配置')
+        
+        # 检查Weaviate配置
+        if not os.getenv('WEAVIATE_URL'):
+            print('警告: Weaviate URL未配置，向量搜索功能可能不可用')
+        else:
+            print('Weaviate配置已设置')
+        "
+        
+        # 运行数据库迁移
+        echo "运行数据库迁移..."
+        flask db upgrade || echo "数据库迁移失败，请检查数据库连接"
+        
+        # 启动服务
+        echo "启动LLMOps服务..."
+        python -m app.http.app
+        EOF
+        
+        chmod +x deployment/start_service.sh
+        
+        # 创建systemd服务文件
+        cat > deployment/llmops.service << EOF
+        [Unit]
+        Description=LLMOps Service
+        After=network.target
+        
+        [Service]
+        Type=simple
+        User=www-data
+        WorkingDirectory=/opt/llmops
+        ExecStart=/opt/llmops/start_service.sh
+        Restart=always
+        RestartSec=10
+        Environment=FLASK_APP=app.http.app
+        Environment=FLASK_ENV=production
+        
+        # 数据库配置 - 需要在目标服务器上设置环境变量
+        # Environment=SQLALCHEMY_DATABASE_URI=\$DATABASE_URL
+        # Environment=REDIS_HOST=\$REDIS_HOST
+        # Environment=REDIS_PASSWORD=\$REDIS_PASSWORD
+        
+        [Install]
+        WantedBy=multi-user.target
+        EOF
+        
+        # 创建部署说明文档
+        cat > deployment/DEPLOYMENT_README.md << 'EOF'
+        # LLMOps服务部署说明
+        
+        ## 环境变量配置
+        在目标服务器上需要设置以下环境变量：
+        
+        ### 数据库配置
+        - SQLALCHEMY_DATABASE_URI: 数据库连接字符串
+        - SQLALCHEMY_POOL_SIZE: 连接池大小 (默认: 30)
+        - SQLALCHEMY_POOL_RECYCLE: 连接回收时间 (默认: 3600)
+        - SQLALCHEMY_ECHO: SQL日志输出 (默认: True)
+        
+        ### Redis配置
+        - REDIS_HOST: Redis主机地址 (默认: localhost)
+        - REDIS_PORT: Redis端口 (默认: 6379)
+        - REDIS_USERNAME: Redis用户名 (可选)
+        - REDIS_PASSWORD: Redis密码 (可选)
+        - REDIS_DB: Redis数据库编号 (默认: 0)
+        - REDIS_USE_SSL: 是否使用SSL (默认: False)
+        
+        ### Celery配置
+        - CELERY_BROKER_DB: Celery代理数据库 (默认: 1)
+        - CELERY_RESULT_BACKEND_DB: Celery结果后端数据库 (默认: 1)
+        - CELERY_TASK_IGNORE_RESULT: 忽略任务结果 (默认: False)
+        - CELERY_RESULT_EXPIRES: 结果过期时间 (默认: 3600)
+        
+        ### Weaviate向量数据库配置
+        - WEAVIATE_URL: Weaviate集群URL
+        - WEAVIATE_API_KEY: Weaviate API密钥
+        
+        ### 其他配置
+        - ASSISTANT_AGENT_ID: 辅助Agent应用ID
+        - WTF_CSRF_ENABLED: CSRF保护 (默认: False)
+        
+        ## 部署步骤
+        1. 将deployment目录上传到目标服务器
+        2. 在目标服务器上安装Python 3.10和依赖
+        3. 设置环境变量
+        4. 安装systemd服务文件
+        5. 启动服务
+        
+        ## 服务管理命令
+        - 启动服务: sudo systemctl start llmops
+        - 停止服务: sudo systemctl stop llmops
+        - 重启服务: sudo systemctl restart llmops
+        - 查看状态: sudo systemctl status llmops
+        - 查看日志: sudo journalctl -u llmops -f
+        EOF
+        
+        # 创建压缩包
+        tar -czf llmops-deployment.tar.gz -C deployment .
+        
+    - name: 上传部署包
+      uses: actions/upload-artifact@v4
+      with:
+        name: llmops-deployment
+        path: llmops-deployment.tar.gz
+        retention-days: 30
+
+  # 部署到目标服务器 (需要配置SSH连接)
+  deploy-to-server:
+    needs: build-and-deploy
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    
+    steps:
+    - name: 下载部署包
+      uses: actions/download-artifact@v4
+      with:
+        name: llmops-deployment
+        
+    - name: 部署到目标服务器
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.DEPLOY_HOST }}
+        username: ${{ secrets.DEPLOY_USER }}
+        key: ${{ secrets.DEPLOY_SSH_KEY }}
+        port: ${{ secrets.DEPLOY_PORT || 22 }}
+        script: |
+          # 创建部署目录
+          sudo mkdir -p /opt/llmops
+          sudo chown ${{ secrets.DEPLOY_USER }}:${{ secrets.DEPLOY_USER }} /opt/llmops
+          
+          # 停止现有服务
+          sudo systemctl stop llmops || true
+          
+          # 备份现有部署
+          if [ -d "/opt/llmops/app" ]; then
+            sudo mv /opt/llmops /opt/llmops.backup.$(date +%Y%m%d_%H%M%S)
+            sudo mkdir -p /opt/llmops
+            sudo chown ${{ secrets.DEPLOY_USER }}:${{ secrets.DEPLOY_USER }} /opt/llmops
+          fi
+          
+    - name: 上传部署文件
+      uses: appleboy/scp-action@v0.1.7
+      with:
+        host: ${{ secrets.DEPLOY_HOST }}
+        username: ${{ secrets.DEPLOY_USER }}
+        key: ${{ secrets.DEPLOY_SSH_KEY }}
+        port: ${{ secrets.DEPLOY_PORT || 22 }}
+        source: "llmops-deployment.tar.gz"
+        target: "/opt/llmops/"
+        
+    - name: 解压和配置服务
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.DEPLOY_HOST }}
+        username: ${{ secrets.DEPLOY_USER }}
+        key: ${{ secrets.DEPLOY_SSH_KEY }}
+        port: ${{ secrets.DEPLOY_PORT || 22 }}
+        script: |
+          cd /opt/llmops
+          
+          # 解压部署包
+          tar -xzf llmops-deployment.tar.gz
+          rm llmops-deployment.tar.gz
+          
+          # 安装Python依赖
+          python3 -m pip install --upgrade pip
+          pip3 install -r requirements.txt
+          
+          # 安装systemd服务
+          sudo cp llmops.service /etc/systemd/system/
+          sudo systemctl daemon-reload
+          sudo systemctl enable llmops
+          
+          # 设置权限
+          sudo chown -R www-data:www-data /opt/llmops
+          sudo chmod +x /opt/llmops/start_service.sh
+          
+    - name: 启动服务
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.DEPLOY_HOST }}
+        username: ${{ secrets.DEPLOY_USER }}
+        key: ${{ secrets.DEPLOY_SSH_KEY }}
+        port: ${{ secrets.DEPLOY_PORT || 22 }}
+        script: |
+          # 启动服务
+          sudo systemctl start llmops
+          
+          # 等待服务启动
+          sleep 10
+          
+          # 检查服务状态
+          sudo systemctl status llmops
+          
+          # 健康检查
+          if curl -f http://localhost:${{ env.SERVICE_PORT }}/health || curl -f http://localhost:${{ env.SERVICE_PORT }}/; then
+            echo "服务启动成功"
+          else
+            echo "服务启动失败，查看日志:"
+            sudo journalctl -u llmops --no-pager -l
+            exit 1
+          fi
+
+  # 健康检查
+  health-check:
+    needs: deploy-to-server
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    
+    steps:
+    - name: 服务健康检查
+      run: |
+        # 等待服务完全启动
+        sleep 30
+        
+        # 检查服务是否可访问
+        if curl -f http://${{ secrets.DEPLOY_HOST }}:${{ env.SERVICE_PORT }}/health || curl -f http://${{ secrets.DEPLOY_HOST }}:${{ env.SERVICE_PORT }}/; then
+          echo "✅ 服务健康检查通过"
+        else
+          echo "❌ 服务健康检查失败"
+          exit 1
+        fi

@@ -216,3 +216,51 @@ class AppHandler:
     def ping(self):
         demo_task.delay(uuid.uuid4())
         return success_json("aaa")
+    
+    def health_check(self):
+        """健康检查端点，用于监控服务状态"""
+        try:
+            # 检查数据库连接
+            from config import Config
+            import os
+            conf = Config()
+            
+            # 检查Weaviate连接状态
+            weaviate_status = "not_configured"
+            if os.getenv('WEAVIATE_URL') and os.getenv('WEAVIATE_API_KEY'):
+                try:
+                    # 尝试连接Weaviate
+                    import weaviate
+                    from weaviate.auth import AuthApiKey
+                    client = weaviate.connect_to_weaviate_cloud(
+                        cluster_url=os.getenv('WEAVIATE_URL'),
+                        auth_credentials=AuthApiKey(os.getenv('WEAVIATE_API_KEY')),
+                    )
+                    client.close()
+                    weaviate_status = "connected"
+                except Exception:
+                    weaviate_status = "connection_failed"
+            
+                    # 检查JWT配置
+                    jwt_status = "configured" if os.getenv('JWT_SECRET_KEY') else "not_configured"
+                    
+                    health_status = {
+                        "status": "healthy",
+                        "service": "LLMOps",
+                        "version": "1.0.0",
+                        "database": "connected" if conf.SQLALCHEMY_DATABASE_URI else "not_configured",
+                        "redis": "connected" if conf.REDIS_HOST else "not_configured",
+                        "jwt": jwt_status,
+                        "weaviate": weaviate_status,
+                        "vector_store": "weaviate" if weaviate_status == "connected" else "faiss",
+                        "timestamp": str(uuid.uuid4())  # 简单的唯一标识
+                    }
+            
+            return success_json(health_status)
+        except Exception as e:
+            return success_json({
+                "status": "unhealthy",
+                "service": "LLMOps", 
+                "error": str(e),
+                "timestamp": str(uuid.uuid4())
+            })
