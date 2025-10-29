@@ -222,7 +222,24 @@ class AppHandler:
         try:
             # 检查数据库连接
             from config import Config
+            import os
             conf = Config()
+            
+            # 检查Weaviate连接状态
+            weaviate_status = "not_configured"
+            if os.getenv('WEAVIATE_URL') and os.getenv('WEAVIATE_API_KEY'):
+                try:
+                    # 尝试连接Weaviate
+                    import weaviate
+                    from weaviate.auth import AuthApiKey
+                    client = weaviate.connect_to_weaviate_cloud(
+                        cluster_url=os.getenv('WEAVIATE_URL'),
+                        auth_credentials=AuthApiKey(os.getenv('WEAVIATE_API_KEY')),
+                    )
+                    client.close()
+                    weaviate_status = "connected"
+                except Exception:
+                    weaviate_status = "connection_failed"
             
             health_status = {
                 "status": "healthy",
@@ -230,6 +247,8 @@ class AppHandler:
                 "version": "1.0.0",
                 "database": "connected" if conf.SQLALCHEMY_DATABASE_URI else "not_configured",
                 "redis": "connected" if conf.REDIS_HOST else "not_configured",
+                "weaviate": weaviate_status,
+                "vector_store": "weaviate" if weaviate_status == "connected" else "faiss",
                 "timestamp": str(uuid.uuid4())  # 简单的唯一标识
             }
             

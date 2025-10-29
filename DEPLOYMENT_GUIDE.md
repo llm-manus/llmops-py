@@ -27,6 +27,8 @@
 
 #### 可选配置
 - `DEPLOY_PORT`: SSH端口（默认22）
+- `WEAVIATE_URL`: Weaviate向量数据库URL（用于向量搜索功能）
+- `WEAVIATE_API_KEY`: Weaviate API密钥
 
 ### 2. 目标服务器配置
 
@@ -82,6 +84,10 @@ export CELERY_TASK_IGNORE_RESULT=False
 export CELERY_RESULT_EXPIRES=3600
 export CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP=True
 
+# Weaviate向量数据库配置（可选，用于向量搜索功能）
+export WEAVIATE_URL="https://your-cluster.weaviate.network"
+export WEAVIATE_API_KEY="your_weaviate_api_key"
+
 # 其他配置
 export ASSISTANT_AGENT_ID="6774fcef-b594-8008-b30c-a05b8190afe6"
 export WTF_CSRF_ENABLED=False
@@ -114,6 +120,37 @@ sudo nano /etc/redis/redis.conf
 # 重启Redis
 sudo systemctl restart redis-server
 ```
+
+#### Weaviate向量数据库配置（可选）
+
+LLMOps项目支持两种向量数据库：
+1. **Weaviate云服务**（推荐用于生产环境）
+2. **FAISS本地存储**（默认，无需额外配置）
+
+##### 选项1：使用Weaviate云服务
+```bash
+# 1. 注册Weaviate云服务账号
+# 访问：https://console.weaviate.cloud/
+
+# 2. 创建集群并获取连接信息
+# - 集群URL: https://your-cluster.weaviate.network
+# - API密钥: 在控制台中生成
+
+# 3. 设置环境变量
+export WEAVIATE_URL="https://your-cluster.weaviate.network"
+export WEAVIATE_API_KEY="your_api_key_here"
+```
+
+##### 选项2：使用FAISS本地存储（默认）
+```bash
+# 无需额外配置，系统会自动使用FAISS
+# 向量数据存储在：/opt/llmops/internal/core/vector_store/
+```
+
+**注意**：
+- 如果配置了Weaviate，系统会优先使用Weaviate进行向量搜索
+- 如果未配置Weaviate，系统会使用FAISS本地存储
+- 向量搜索功能主要用于知识库检索和文档搜索
 
 ## 部署流程
 
