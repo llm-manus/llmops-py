@@ -241,16 +241,20 @@ class AppHandler:
                 except Exception:
                     weaviate_status = "connection_failed"
             
-            health_status = {
-                "status": "healthy",
-                "service": "LLMOps",
-                "version": "1.0.0",
-                "database": "connected" if conf.SQLALCHEMY_DATABASE_URI else "not_configured",
-                "redis": "connected" if conf.REDIS_HOST else "not_configured",
-                "weaviate": weaviate_status,
-                "vector_store": "weaviate" if weaviate_status == "connected" else "faiss",
-                "timestamp": str(uuid.uuid4())  # 简单的唯一标识
-            }
+                    # 检查JWT配置
+                    jwt_status = "configured" if os.getenv('JWT_SECRET_KEY') else "not_configured"
+                    
+                    health_status = {
+                        "status": "healthy",
+                        "service": "LLMOps",
+                        "version": "1.0.0",
+                        "database": "connected" if conf.SQLALCHEMY_DATABASE_URI else "not_configured",
+                        "redis": "connected" if conf.REDIS_HOST else "not_configured",
+                        "jwt": jwt_status,
+                        "weaviate": weaviate_status,
+                        "vector_store": "weaviate" if weaviate_status == "connected" else "faiss",
+                        "timestamp": str(uuid.uuid4())  # 简单的唯一标识
+                    }
             
             return success_json(health_status)
         except Exception as e:

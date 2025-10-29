@@ -26,6 +26,31 @@ env:
   # REDIS_PASSWORD: ${{ secrets.REDIS_PASSWORD }}
   # WEAVIATE_URL: ${{ secrets.WEAVIATE_URL }}
   # WEAVIATE_API_KEY: ${{ secrets.WEAVIATE_API_KEY }}
+  
+  # JWT认证配置 - 必需
+  # JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
+  
+  # 腾讯云COS配置 - 可选
+  # COS_REGION: ${{ secrets.COS_REGION }}
+  # COS_BUCKET: ${{ secrets.COS_BUCKET }}
+  # COS_SECRET_ID: ${{ secrets.COS_SECRET_ID }}
+  # COS_SECRET_KEY: ${{ secrets.COS_SECRET_KEY }}
+  
+  # GitHub OAuth配置 - 可选
+  # GITHUB_CLIENT_ID: ${{ secrets.GITHUB_CLIENT_ID }}
+  # GITHUB_CLIENT_SECRET: ${{ secrets.GITHUB_CLIENT_SECRET }}
+  # GITHUB_REDIRECT_URI: ${{ secrets.GITHUB_REDIRECT_URI }}
+  
+  # 语言模型API密钥 - 可选
+  # OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+  # ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+  # MOONSHOT_API_KEY: ${{ secrets.MOONSHOT_API_KEY }}
+  # DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+  
+  # 内置工具API密钥 - 可选
+  # GAODE_API_KEY: ${{ secrets.GAODE_API_KEY }}
+  # SERPER_API_KEY: ${{ secrets.SERPER_API_KEY }}
+  # GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
 
 jobs:
   # 代码质量检查

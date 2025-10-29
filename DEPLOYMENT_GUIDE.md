@@ -29,6 +29,21 @@
 - `DEPLOY_PORT`: SSH端口（默认22）
 - `WEAVIATE_URL`: Weaviate向量数据库URL（用于向量搜索功能）
 - `WEAVIATE_API_KEY`: Weaviate API密钥
+- `JWT_SECRET_KEY`: JWT签名密钥（**必需**，用于用户认证）
+- `COS_REGION`: 腾讯云COS区域（可选，用于文件存储）
+- `COS_BUCKET`: 腾讯云COS存储桶（可选）
+- `COS_SECRET_ID`: 腾讯云COS访问密钥ID（可选）
+- `COS_SECRET_KEY`: 腾讯云COS访问密钥（可选）
+- `GITHUB_CLIENT_ID`: GitHub OAuth客户端ID（可选）
+- `GITHUB_CLIENT_SECRET`: GitHub OAuth客户端密钥（可选）
+- `GITHUB_REDIRECT_URI`: GitHub OAuth回调URI（可选）
+- `OPENAI_API_KEY`: OpenAI API密钥（可选）
+- `ANTHROPIC_API_KEY`: Anthropic API密钥（可选）
+- `MOONSHOT_API_KEY`: 月之暗面API密钥（可选）
+- `DEEPSEEK_API_KEY`: DeepSeek API密钥（可选）
+- `GAODE_API_KEY`: 高德地图API密钥（可选）
+- `SERPER_API_KEY`: Google Serper API密钥（可选）
+- `GOOGLE_API_KEY`: Google API密钥（可选）
 
 ### 2. 目标服务器配置
 
@@ -69,6 +84,9 @@ export SQLALCHEMY_POOL_SIZE=30
 export SQLALCHEMY_POOL_RECYCLE=3600
 export SQLALCHEMY_ECHO=True
 
+# JWT认证配置（必需）
+export JWT_SECRET_KEY="your_jwt_secret_key_here"
+
 # Redis配置
 export REDIS_HOST=localhost
 export REDIS_PORT=6379
@@ -87,6 +105,30 @@ export CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP=True
 # Weaviate向量数据库配置（可选，用于向量搜索功能）
 export WEAVIATE_URL="https://your-cluster.weaviate.network"
 export WEAVIATE_API_KEY="your_weaviate_api_key"
+
+# 腾讯云COS配置（可选，用于文件存储）
+export COS_REGION="ap-beijing"
+export COS_BUCKET="your-bucket-name"
+export COS_SECRET_ID="your_cos_secret_id"
+export COS_SECRET_KEY="your_cos_secret_key"
+export COS_SCHEME="https"
+export COS_DOMAIN="your-custom-domain.com"
+
+# GitHub OAuth配置（可选，用于第三方登录）
+export GITHUB_CLIENT_ID="your_github_client_id"
+export GITHUB_CLIENT_SECRET="your_github_client_secret"
+export GITHUB_REDIRECT_URI="http://localhost:5000/oauth/authorize/github"
+
+# 语言模型API密钥（可选，用于AI对话功能）
+export OPENAI_API_KEY="your_openai_api_key"
+export ANTHROPIC_API_KEY="your_anthropic_api_key"
+export MOONSHOT_API_KEY="your_moonshot_api_key"
+export DEEPSEEK_API_KEY="your_deepseek_api_key"
+
+# 内置工具API密钥（可选，用于特定工具功能）
+export GAODE_API_KEY="your_gaode_api_key"
+export SERPER_API_KEY="your_serper_api_key"
+export GOOGLE_API_KEY="your_google_api_key"
 
 # 其他配置
 export ASSISTANT_AGENT_ID="6774fcef-b594-8008-b30c-a05b8190afe6"
@@ -120,6 +162,22 @@ sudo nano /etc/redis/redis.conf
 # 重启Redis
 sudo systemctl restart redis-server
 ```
+
+#### 配置优先级说明
+
+**🔴 必需配置（影响核心功能）**
+- `JWT_SECRET_KEY` - 用户认证，不配置无法登录
+- `SQLALCHEMY_DATABASE_URI` - 数据库连接，不配置无法启动
+- `REDIS_HOST` - 缓存和任务队列，不配置功能受限
+
+**🟡 建议配置（影响重要功能）**
+- `WEAVIATE_URL` + `WEAVIATE_API_KEY` - 知识库功能
+- `OPENAI_API_KEY` 等语言模型密钥 - AI对话功能
+- `COS_*` 配置 - 文件上传功能
+
+**🟢 可选配置（影响特定功能）**
+- `GITHUB_*` 配置 - 第三方登录
+- `GAODE_API_KEY` 等工具密钥 - 特定工具功能
 
 #### Weaviate向量数据库配置（可选）
 
