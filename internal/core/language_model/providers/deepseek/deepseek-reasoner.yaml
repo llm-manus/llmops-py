@@ -1,0 +1,22 @@
+model: deepseek-reasoner
+label: deepseek-reasoner
+model_type: chat
+features:
+  - tool_call
+  - agent_thought
+  - image_input
+context_window: 64000
+max_output_tokens: 8000
+attributes:
+  model: deepseek-reasoner
+parameters:
+  - name: max_tokens
+    use_template: max_tokens
+    default: 4000
+    max: 8000
+metadata:
+  pricing:
+    input: 0.002
+    output: 0.008
+    unit: 0.001
+    currency: RMB
