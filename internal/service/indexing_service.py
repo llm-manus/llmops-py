@@ -7,12 +7,10 @@
 """
 import re
 import uuid
-from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime
 from uuid import UUID
 
-from flask import Flask, current_app
 from injector import inject
 from langchain_core.documents import Document as LCDocument
 from redis import Redis
