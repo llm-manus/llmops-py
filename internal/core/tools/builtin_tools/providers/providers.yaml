@@ -1,10 +1,3 @@
-- name: google
-  label: Google
-  description: 谷歌服务提供商，涵盖了谷歌搜素等工具。
-  icon: icon.svg
-  background: "#E5E7EB"
-  category: search
-  created_at: 1751768890
 - name: microsoft
   label: Microsoft
   description: 微软服务提供商，涵盖了谷歌搜素等工具。
@@ -18,13 +11,6 @@
   icon: icon.svg
   background: "#E5E7EB"
   category: tool
-  created_at: 1751768890
-- name: dalle
-  label: DALLE
-  description: DALLE是一个文生图工具。
-  icon: icon.png
-  background: "#E5E7EB"
-  category: image
   created_at: 1751768890
 - name: gaode
   label: 高德工具包
