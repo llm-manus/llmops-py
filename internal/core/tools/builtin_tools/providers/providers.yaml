@@ -5,19 +5,19 @@
   background: "#E5E7EB"
   category: search
   created_at: 1751768890
+- name: microsoft
+  label: Microsoft
+  description: 微软服务提供商，涵盖了谷歌搜素等工具。
+  icon: icon.svg
+  background: "#E5E7EB"
+  category: search
+  created_at: 1751768890
 - name: time
   label: 时间
   description: 一个用于获取当前时间的工具
   icon: icon.svg
   background: "#E5E7EB"
   category: tool
-  created_at: 1751768890
-- name: duckduckgo
-  label: DuckDuckGo
-  description: 一个注重隐私的搜索引擎。
-  icon: icon.svg
-  background: "#FFFFFF"
-  category: search
   created_at: 1751768890
 - name: dalle
   label: DALLE
