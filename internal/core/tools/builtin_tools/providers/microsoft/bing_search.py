@@ -42,7 +42,20 @@ class BingSearchTool(BaseTool):
     description: str = "当你想要去搜索网络上的数据时可以使用这个工具"
     args_schema: Type[BaseModel] = BingSearchArgsSchema
 
-    def _run(self, *args: Any, **kwargs: Any) -> SearchResults:
+    def __init__(self):
+        """构造函数，初始化bing搜索引擎的相关信息"""
+        super().__init__()
+        self._base_url = "https://www.bing.com/search"
+        self._headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept-Language": "en-US,en;q=0.5",
+            "Accept-Encoding": "gzip, deflate",
+            "Connection": "keep-alive",
+            "Upgrade-Insecure-Requests": "1",
+        }
+        self._cookies = httpx.Cookies()
+
+    def _run(self, *args: Any, **kwargs: Any) -> List[str]:
         """根据传递的query+date_range调用bing搜索获取搜索内容"""
         query = kwargs.get("query")
         date_range = kwargs.get("date_range")
@@ -71,17 +84,17 @@ class BingSearchTool(BaseTool):
         try:
             # 6.使用httpx创建一个异步客户端上下文
             with httpx.Client(
-                    headers=self.headers,
-                    cookies=self.cookies,
+                    headers=self._headers,
+                    cookies=self._cookies,
                     timeout=60,
                     follow_redirects=True,
             ) as client:
                 # 7.调用客户端发起请求
-                response = client.get(self.base_url, params=params)
+                response = client.get(self._base_url, params=params)
                 response.raise_for_status()
 
                 # 8.更新cookie信息
-                self.cookies.update(response.cookies)
+                self._cookies.update(response.cookies)
 
                 # 9.使用bs4解析html内容
                 soup = BeautifulSoup(response.text, "html.parser")
@@ -164,57 +177,12 @@ class BingSearchTool(BaseTool):
                         # 单挑搜索信息出错则记录日志并跳过该条数据
                         # logger.warning(f"Bing搜索结果解析失败: {str(e)}")
                         continue
-
-                # 24.提取整个页面的内容并查找`results`对应的文本
-                total_results = 0
-                result_status = soup.find_all(string=re.compile(r"\d+[,\d+]\s*results"))
-                if result_status:
-                    for stat in result_status:
-                        # 25.匹配厨对应的数字分组
-                        match = re.search(r"([\d,]+)\s*results", stat)
-                        if match:
-                            try:
-                                # 26.取出匹配的分组内容，去除逗号后转换为整型
-                                total_results = int(match.group(1).replace(",", ""))
-                                break
-                            except Exception as e:
-                                continue
-
-                # 27.如果使用正则匹配找不到results（可能是页面不一致导致的）则使用新逻辑
-                if total_results == 0:
-                    # 28.使用类元素查找器
-                    count_elements = soup.find_all(
-                        ["span", "p", "div"],
-                        class_=re.compile(r"sb_count|b_focusTextMedium"),
-                    )
-                    for element in count_elements:
-                        # 29.提取dom的文本并获取数字
-                        text = element.get_text(strip=True)
-                        match = re.search(r"([\d,]+)\s*results", text)
-                        if match:
-                            try:
-                                total_results = int(match.group(1).replace(",", ""))
-                                break
-                            except Exception as e:
-                                continue
                 # 30.以及有对应结果了则直接返回ToolResult
-                results = SearchResults(
-                    query=query,
-                    date_range=date_range,
-                    total_results=total_results,
-                    results=search_results,
-                )
-                return results
+                return [result.model_dump() for result in search_results]
         except Exception as e:
             # 31.记录下异常信息
             # logger.error(f"Bing搜索出错: {str(e)}")
-            error_results = SearchResults(
-                query=query,
-                date_range=date_range,
-                total_results=0,
-                results=[],
-            )
-            return error_results
+            return []
 
 
 @add_attribute("args_schema", BingSearchArgsSchema)
